@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Marker, Source, Layer } from 'react-map-gl'
-import type { MapRef } from 'react-map-gl'
+import { Source, Layer } from 'react-map-gl'
+import type { MapRef, MapMouseEvent } from 'react-map-gl'
 import { MapObject, ObjectType, TOOL_CONFIGS } from '@/types/map'
+import { generateIcon, ICON_CONFIG } from '@/lib/mapIcons'
 
 interface MapDrawingLayerProps {
   mapRef: React.RefObject<MapRef>
@@ -21,23 +22,80 @@ export default function MapDrawingLayer({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isDrawingLine, setIsDrawingLine] = useState(false)
   const [currentLine, setCurrentLine] = useState<[number, number][]>([])
-  const drawingRef = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartRef = useRef<{ id: string; startLng: number; startLat: number } | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
-  // Handle map clicks for placing objects
+  // Load icons into the map
   useEffect(() => {
     if (!mapRef.current) return
-
     const map = mapRef.current
 
-    const handleMapClick = (e: any) => {
+    const loadIcons = () => {
+      Object.entries(ICON_CONFIG).forEach(([type, config]) => {
+        if (!map.hasImage(type)) {
+          try {
+            const canvas = generateIcon(config.emoji, config.color)
+            const imageData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+            map.addImage(type, imageData)
+          } catch (error) {
+            console.error(`Failed to create icon ${type}:`, error)
+          }
+        }
+      })
+    }
+
+    if (map.loaded()) {
+      loadIcons()
+    } else {
+      map.on('load', loadIcons)
+    }
+  }, [mapRef])
+
+  // Handle map interactions
+  useEffect(() => {
+    if (!mapRef.current) return
+    const map = mapRef.current
+
+    const handleMapClick = (e: MapMouseEvent) => {
       const { lng, lat } = e.lngLat
 
-      // Handle different tool modes
-      if (!activeTool || activeTool === 'select' || activeTool === 'delete') {
-        // Click on empty space deselects
-        if (activeTool === 'select') {
+      // Check if we clicked on a point feature
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ['drawing-points-layer']
+      })
+
+      if (features.length > 0) {
+        const feature = features[0]
+        const id = feature.properties?.id
+
+        if (activeTool === 'delete') {
+          // Delete the object
+          setObjects(objects.filter(obj => obj.id !== id))
           setSelectedId(null)
+        } else if (activeTool === 'select') {
+          // Select the object
+          setSelectedId(id)
         }
+        return
+      }
+
+      // Check if we clicked on a line feature
+      const lineFeatures = map.queryRenderedFeatures(e.point, {
+        layers: ['drawing-lines-layer']
+      })
+
+      if (lineFeatures.length > 0 && activeTool === 'delete') {
+        const feature = lineFeatures[0]
+        const id = feature.properties?.id
+        setObjects(objects.filter(obj => obj.id !== id))
+        setSelectedId(null)
+        return
+      }
+
+      // Handle empty space clicks
+      if (!activeTool || activeTool === 'select' || activeTool === 'delete') {
+        setSelectedId(null)
         return
       }
 
@@ -59,30 +117,77 @@ export default function MapDrawingLayer({
         }
         setObjects([...objects, newObject])
       } else if (toolConfig.drawType === 'line' && activeTool === 'swale') {
-        // Start drawing a line
+        // Start or continue drawing a line
         if (!isDrawingLine) {
           setIsDrawingLine(true)
           setCurrentLine([[lng, lat]])
-          drawingRef.current = true
         } else {
-          // Add point to current line
           setCurrentLine([...currentLine, [lng, lat]])
         }
       }
     }
 
-    const handleMouseMove = (e: any) => {
-      if (isDrawingLine && currentLine.length > 0) {
+    const handleMouseMove = (e: MapMouseEvent) => {
+      // Handle hover effects
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ['drawing-points-layer', 'drawing-lines-layer']
+      })
+
+      if (features.length > 0) {
+        const id = features[0].properties?.id
+        setHoveredId(id)
+        map.getCanvas().style.cursor = 
+          activeTool === 'delete' ? 'pointer' : 
+          activeTool === 'select' ? 'move' : 
+          'pointer'
+      } else {
+        setHoveredId(null)
+        map.getCanvas().style.cursor = 
+          activeTool && activeTool !== 'select' && activeTool !== 'delete' 
+            ? 'crosshair' 
+            : 'default'
+      }
+
+      // Handle dragging
+      if (isDragging && dragStartRef.current && activeTool === 'select') {
         const { lng, lat } = e.lngLat
-        // Update preview line
-        const preview = [...currentLine.slice(0, -1), [lng, lat]]
-        if (currentLine.length === preview.length) {
-          setCurrentLine([...currentLine, [lng, lat]])
+        const draggedObject = objects.find(obj => obj.id === dragStartRef.current?.id)
+        
+        if (draggedObject && draggedObject.type === 'point') {
+          setObjects(objects.map(obj => 
+            obj.id === dragStartRef.current?.id 
+              ? { ...obj, coordinates: [lng, lat] }
+              : obj
+          ))
         }
       }
     }
 
-    const handleDoubleClick = (e: any) => {
+    const handleMouseDown = (e: MapMouseEvent) => {
+      if (activeTool !== 'select') return
+
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ['drawing-points-layer']
+      })
+
+      if (features.length > 0) {
+        const feature = features[0]
+        const id = feature.properties?.id
+        const { lng, lat } = e.lngLat
+        
+        setIsDragging(true)
+        dragStartRef.current = { id, startLng: lng, startLat: lat }
+        setSelectedId(id)
+        e.preventDefault()
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      dragStartRef.current = null
+    }
+
+    const handleDoubleClick = (e: MapMouseEvent) => {
       if (isDrawingLine && currentLine.length > 1) {
         // Finish drawing the line
         const newObject: MapObject = {
@@ -99,47 +204,44 @@ export default function MapDrawingLayer({
         setObjects([...objects, newObject])
         setIsDrawingLine(false)
         setCurrentLine([])
-        drawingRef.current = false
         e.preventDefault()
       }
     }
 
     map.on('click', handleMapClick)
     map.on('mousemove', handleMouseMove)
+    map.on('mousedown', handleMouseDown)
+    map.on('mouseup', handleMouseUp)
     map.on('dblclick', handleDoubleClick)
 
     return () => {
       map.off('click', handleMapClick)
       map.off('mousemove', handleMouseMove)
+      map.off('mousedown', handleMouseDown)
+      map.off('mouseup', handleMouseUp)
       map.off('dblclick', handleDoubleClick)
     }
-  }, [mapRef, activeTool, objects, setObjects, isDrawingLine, currentLine])
+  }, [mapRef, activeTool, objects, setObjects, isDrawingLine, currentLine, isDragging, selectedId])
 
-  // Handle marker drag
-  const handleMarkerDrag = useCallback((id: string, lng: number, lat: number) => {
-    setObjects(objects.map(obj => 
-      obj.id === id 
-        ? { ...obj, coordinates: [lng, lat] }
-        : obj
-    ))
-  }, [objects, setObjects])
+  // Prepare GeoJSON for points
+  const pointFeatures = objects
+    .filter(obj => obj.type === 'point')
+    .map(obj => ({
+      type: 'Feature' as const,
+      properties: {
+        id: obj.id,
+        ...obj.properties
+      },
+      geometry: {
+        type: 'Point' as const,
+        coordinates: obj.coordinates as [number, number]
+      }
+    }))
 
-  // Handle object deletion
-  const handleDelete = useCallback((id: string) => {
-    if (activeTool === 'delete') {
-      setObjects(objects.filter(obj => obj.id !== id))
-      setSelectedId(null)
-    }
-  }, [activeTool, objects, setObjects])
-
-  // Handle object selection
-  const handleSelect = useCallback((id: string) => {
-    if (activeTool === 'select') {
-      setSelectedId(id)
-    } else if (activeTool === 'delete') {
-      handleDelete(id)
-    }
-  }, [activeTool, handleDelete])
+  const pointGeoJson = {
+    type: 'FeatureCollection' as const,
+    features: pointFeatures
+  }
 
   // Prepare GeoJSON for lines
   const lineFeatures = objects
@@ -156,7 +258,7 @@ export default function MapDrawingLayer({
       }
     }))
 
-  // Add current drawing line to features if drawing
+  // Add current drawing line if active
   if (isDrawingLine && currentLine.length > 0) {
     lineFeatures.push({
       type: 'Feature' as const,
@@ -164,7 +266,8 @@ export default function MapDrawingLayer({
         id: 'drawing-line',
         objectType: 'swale',
         color: TOOL_CONFIGS.swale.color,
-        icon: TOOL_CONFIGS.swale.icon
+        icon: TOOL_CONFIGS.swale.icon,
+        name: 'Drawing...'
       },
       geometry: {
         type: 'LineString' as const,
@@ -173,32 +276,59 @@ export default function MapDrawingLayer({
     })
   }
 
-  const geoJsonData = {
+  const lineGeoJson = {
     type: 'FeatureCollection' as const,
     features: lineFeatures
   }
 
   return (
     <>
-      {/* Render GeoJSON lines (swales) */}
-      <Source id="drawing-lines" type="geojson" data={geoJsonData}>
+      {/* Lines layer (swales) */}
+      <Source id="drawing-lines" type="geojson" data={lineGeoJson}>
         <Layer
           id="drawing-lines-layer"
           type="line"
           paint={{
             'line-color': ['get', 'color'],
-            'line-width': ['case',
-              ['==', ['get', 'id'], selectedId],
-              6,
-              ['==', ['get', 'id'], 'drawing-line'],
-              3,
-              4
+            'line-width': [
+              'interpolate',
+              ['exponential', 2],
+              ['zoom'],
+              12, 2,
+              16, 4,
+              20, 8
             ],
             'line-opacity': ['case',
               ['==', ['get', 'id'], 'drawing-line'],
               0.6,
-              1
+              ['==', ['get', 'id'], hoveredId],
+              1,
+              ['==', ['get', 'id'], selectedId],
+              1,
+              0.8
             ]
+          }}
+          layout={{
+            'line-cap': 'round',
+            'line-join': 'round'
+          }}
+        />
+        {/* Selection highlight for lines */}
+        <Layer
+          id="drawing-lines-selected"
+          type="line"
+          filter={['==', ['get', 'id'], selectedId || '']}
+          paint={{
+            'line-color': '#0000FF',
+            'line-width': [
+              'interpolate',
+              ['exponential', 2],
+              ['zoom'],
+              12, 4,
+              16, 8,
+              20, 16
+            ],
+            'line-opacity': 0.3
           }}
           layout={{
             'line-cap': 'round',
@@ -207,46 +337,52 @@ export default function MapDrawingLayer({
         />
       </Source>
 
-      {/* Render point markers */}
-      {objects
-        .filter(obj => obj.type === 'point')
-        .map(obj => (
-          <Marker
-            key={obj.id}
-            longitude={obj.coordinates[0] as number}
-            latitude={obj.coordinates[1] as number}
-            draggable={activeTool === 'select'}
-            onDragEnd={(e) => handleMarkerDrag(obj.id, e.lngLat.lng, e.lngLat.lat)}
-            onClick={(e) => {
-              e.originalEvent.stopPropagation()
-              handleSelect(obj.id)
-            }}
-          >
-            <div
-              className={`
-                flex items-center justify-center 
-                w-12 h-12 rounded-full cursor-pointer
-                transition-all transform hover:scale-110
-                ${selectedId === obj.id && activeTool === 'select' 
-                  ? 'ring-4 ring-blue-500 ring-opacity-50 scale-110' 
-                  : ''
-                }
-                ${activeTool === 'delete' 
-                  ? 'hover:ring-4 hover:ring-red-500 hover:ring-opacity-50' 
-                  : ''
-                }
-              `}
-              style={{
-                backgroundColor: obj.properties.color,
-                opacity: 0.8,
-              }}
-            >
-              <span className="text-2xl select-none">
-                {obj.properties.icon}
-              </span>
-            </div>
-          </Marker>
-        ))}
+      {/* Points layer */}
+      <Source id="drawing-points" type="geojson" data={pointGeoJson}>
+        <Layer
+          id="drawing-points-layer"
+          type="symbol"
+          layout={{
+            'icon-image': ['get', 'objectType'],
+            'icon-size': [
+              'interpolate',
+              ['exponential', 2],
+              ['zoom'],
+              12, 0.3,
+              16, 0.6,
+              18, 1,
+              20, 1.5
+            ],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'center'
+          }}
+          paint={{
+            'icon-opacity': ['case',
+              ['==', ['get', 'id'], hoveredId],
+              1,
+              ['==', ['get', 'id'], selectedId],
+              1,
+              0.9
+            ],
+            'icon-halo-color': ['case',
+              ['==', ['get', 'id'], selectedId],
+              '#0000FF',
+              ['==', ['get', 'id'], hoveredId],
+              activeTool === 'delete' ? '#FF0000' : '#4444FF',
+              '#FFFFFF'
+            ],
+            'icon-halo-width': ['case',
+              ['==', ['get', 'id'], selectedId],
+              3,
+              ['==', ['get', 'id'], hoveredId],
+              2,
+              0
+            ],
+            'icon-halo-blur': 1
+          }}
+        />
+      </Source>
 
       {/* Instructions overlay */}
       {activeTool === 'delete' && (
