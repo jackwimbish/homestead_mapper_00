@@ -141,35 +141,35 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
           <AuthForm />
           
           {user && (
-            <div className="bg-white rounded-lg shadow-lg p-4 space-y-2">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Save & Load</h3>
+            <div className="bg-white rounded-lg shadow-lg p-4 space-y-2 border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-2">Save & Load</h3>
               <button
                 onClick={handleSave}
                 disabled={saving || objects.length === 0}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
               >
                 {saving ? 'Saving...' : 'Save Design'}
               </button>
               <button
                 onClick={handleLoad}
                 disabled={loading}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
                 {loading ? 'Loading...' : 'Load Design'}
               </button>
             </div>
           )}
           
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Map Layers</h3>
+          <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+            <h3 className="text-sm font-bold text-gray-900 mb-2">Map Layers</h3>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={showContours}
                 onChange={(e) => setShowContours(e.target.checked)}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 accent-blue-600"
               />
-              <span className="text-sm text-gray-700">Show Contours</span>
+              <span className="text-sm text-gray-800 font-medium">Show Contours</span>
             </label>
           </div>
         </div>

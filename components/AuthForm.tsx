@@ -33,13 +33,13 @@ export default function AuthForm() {
 
   if (user) {
     return (
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <p className="text-sm text-gray-600 mb-2">
-          Logged in as: <span className="font-semibold">{user.email}</span>
+      <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+        <p className="text-sm text-gray-800 font-medium mb-2">
+          Logged in as: <span className="font-bold text-gray-900">{user.email}</span>
         </p>
         <button
           onClick={logout}
-          className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          className="w-full px-4 py-2 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors"
         >
           Logout
         </button>
@@ -48,8 +48,8 @@ export default function AuthForm() {
   }
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <h3 className="text-lg font-semibold mb-4">
+    <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+      <h3 className="text-lg font-bold text-gray-900 mb-4">
         {isSignUp ? 'Sign Up' : 'Sign In'}
       </h3>
       
@@ -60,7 +60,7 @@ export default function AuthForm() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 bg-white"
             required
           />
         </div>
@@ -71,20 +71,20 @@ export default function AuthForm() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 bg-white"
             required
             minLength={6}
           />
         </div>
 
         {error && (
-          <p className="text-red-500 text-sm">{error}</p>
+          <p className="text-red-600 text-sm font-medium">{error}</p>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+          className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
         >
           {loading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
         </button>
@@ -92,7 +92,7 @@ export default function AuthForm() {
 
       <button
         onClick={() => setIsSignUp(!isSignUp)}
-        className="w-full mt-4 text-sm text-blue-600 hover:underline"
+        className="w-full mt-4 text-sm text-blue-700 font-medium hover:underline"
       >
         {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
       </button>
