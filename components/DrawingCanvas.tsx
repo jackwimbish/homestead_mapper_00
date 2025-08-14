@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Stage, Layer, Rect, Circle, Line, Text, Group, Transformer } from 'react-konva'
+import { useState, useRef, useEffect } from 'react'
+import { Stage, Layer, Rect, Circle, Line, Text, Group } from 'react-konva'
 import Konva from 'konva'
 
 interface DrawingCanvasProps {
@@ -30,11 +30,12 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
   const [currentLine, setCurrentLine] = useState<number[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const stageRef = useRef<Konva.Stage>(null)
-  const transformerRef = useRef<Konva.Transformer>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null)
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    // If clicking on empty space, deselect
     const clickedOnEmpty = e.target === e.target.getStage()
+    
     if (clickedOnEmpty) {
       setSelectedId(null)
     }
@@ -51,6 +52,9 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
       // Selection/deletion is handled by clicking on objects
       return
     }
+
+    // Only proceed with drawing if we clicked on empty space
+    if (!clickedOnEmpty) return
 
     const newId = `object_${Date.now()}`
 
@@ -162,10 +166,51 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
     }
   }
 
+  const handleObjectMouseDown = (e: React.MouseEvent, id: string, obj: DrawingObject) => {
+    e.stopPropagation()
+    if (activeTool === 'delete') {
+      setObjects(objects.filter(o => o.id !== id))
+      setSelectedId(null)
+    } else if (activeTool === 'select') {
+      setSelectedId(id)
+      setDraggedId(id)
+      setDragStart({ x: e.clientX - obj.x, y: e.clientY - obj.y })
+    }
+  }
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (draggedId && dragStart) {
+      const handleMouseMoveWindow = (e: MouseEvent) => {
+        setObjects(prev => prev.map((obj) => {
+          if (obj.id === draggedId) {
+            return {
+              ...obj,
+              x: e.clientX - dragStart.x,
+              y: e.clientY - dragStart.y,
+            }
+          }
+          return obj
+        }))
+      }
+
+      const handleMouseUpWindow = () => {
+        setDraggedId(null)
+        setDragStart(null)
+      }
+
+      window.addEventListener('mousemove', handleMouseMoveWindow)
+      window.addEventListener('mouseup', handleMouseUpWindow)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMoveWindow)
+        window.removeEventListener('mouseup', handleMouseUpWindow)
+      }
+    }
+  }, [draggedId, dragStart])
+
   const renderObject = (obj: DrawingObject) => {
     const isDraggable = activeTool === 'select'
     const isSelected = selectedId === obj.id && activeTool === 'select'
-    const cursorStyle = activeTool === 'delete' ? 'pointer' : activeTool === 'select' ? 'move' : 'default'
 
     switch (obj.type) {
       case 'swale':
@@ -255,35 +300,119 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
   }
 
   const getCursorStyle = () => {
-    if (activeTool === 'select') return 'move'
+    if (activeTool === 'select') return 'default'
     if (activeTool === 'delete') return 'crosshair'
     return 'crosshair'
   }
 
+  // Only render the full interactive canvas when drawing
+  const isDrawingTool = activeTool && activeTool !== 'select' && activeTool !== 'delete'
+
   return (
-    <div className="absolute inset-0">
-      <Stage
-        ref={stageRef}
-        width={width}
-        height={height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{ cursor: getCursorStyle() }}
+    <>
+      <div 
+        className="absolute inset-0"
+        style={{ 
+          pointerEvents: isDrawingTool ? 'auto' : 'none'
+        }}
       >
-        <Layer>
-          {objects.map(renderObject)}
-          {isDrawing && currentLine.length > 0 && (
-            <Line
-              points={currentLine}
-              stroke="#6495ED"
-              strokeWidth={4}
-              lineCap="round"
-              lineJoin="round"
-            />
-          )}
-        </Layer>
-      </Stage>
+        <Stage
+          ref={stageRef}
+          width={width}
+          height={height}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          style={{ cursor: getCursorStyle() }}
+        >
+          <Layer>
+            {/* Always render objects through the canvas */}
+            {objects.map(renderObject)}
+            
+            {/* Drawing preview */}
+            {isDrawing && currentLine.length > 0 && (
+              <Line
+                points={currentLine}
+                stroke="#6495ED"
+                strokeWidth={4}
+                lineCap="round"
+                lineJoin="round"
+              />
+            )}
+          </Layer>
+        </Stage>
+      </div>
+
+      {/* In select/delete mode, add invisible hit areas for objects */}
+      {(activeTool === 'select' || activeTool === 'delete') && (
+        <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+          {objects.map((obj) => {
+            const isSelected = selectedId === obj.id && activeTool === 'select'
+            
+            if (obj.type === 'swale' && obj.points) {
+              // For swales, create a hit area along the line
+              const minX = Math.min(...obj.points.filter((_, i) => i % 2 === 0))
+              const maxX = Math.max(...obj.points.filter((_, i) => i % 2 === 0))
+              const minY = Math.min(...obj.points.filter((_, i) => i % 2 === 1))
+              const maxY = Math.max(...obj.points.filter((_, i) => i % 2 === 1))
+              
+              return (
+                <div
+                  key={`hit-${obj.id}`}
+                  className="absolute"
+                  style={{
+                    left: minX - 10,
+                    top: minY - 10,
+                    width: maxX - minX + 20,
+                    height: maxY - minY + 20,
+                    pointerEvents: 'auto',
+                    cursor: activeTool === 'delete' ? 'pointer' : 'move',
+                  }}
+                  onMouseDown={(e) => handleObjectMouseDown(e, obj.id, obj)}
+                />
+              )
+            } else if (obj.type === 'food_forest' || obj.type === 'pond') {
+              // Circle objects
+              const radius = obj.radius || 30
+              return (
+                <div
+                  key={`hit-${obj.id}`}
+                  className="absolute"
+                  style={{
+                    left: obj.x - radius,
+                    top: obj.y - radius,
+                    width: radius * 2,
+                    height: radius * 2,
+                    borderRadius: '50%',
+                    pointerEvents: 'auto',
+                    cursor: activeTool === 'delete' ? 'pointer' : 'move',
+                  }}
+                  onMouseDown={(e) => handleObjectMouseDown(e, obj.id, obj)}
+                />
+              )
+            } else {
+              // Rectangle objects
+              const width = obj.width || 50
+              const height = obj.height || 50
+              return (
+                <div
+                  key={`hit-${obj.id}`}
+                  className="absolute"
+                  style={{
+                    left: obj.x - width / 2,
+                    top: obj.y - height / 2,
+                    width: width,
+                    height: height,
+                    pointerEvents: 'auto',
+                    cursor: activeTool === 'delete' ? 'pointer' : 'move',
+                  }}
+                  onMouseDown={(e) => handleObjectMouseDown(e, obj.id, obj)}
+                />
+              )
+            }
+          })}
+        </div>
+      )}
       
       {/* Instructions overlay */}
       {activeTool === 'delete' && (
@@ -293,9 +422,12 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
       )}
       {activeTool === 'select' && (
         <div className="absolute top-4 left-4 bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded-lg pointer-events-none">
-          <p className="text-sm font-medium">Click and drag items to move them</p>
+          <p className="text-sm font-medium">
+            • Click and drag items to move them<br/>
+            • Drag the map to pan around
+          </p>
         </div>
       )}
-    </div>
+    </>
   )
 }

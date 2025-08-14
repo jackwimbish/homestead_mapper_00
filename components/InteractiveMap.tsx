@@ -190,6 +190,9 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
               style={{ width: '100%', height: '100%' }}
               mapStyle="mapbox://styles/mapbox/satellite-v9"
               terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
+              dragPan={true}
+              scrollZoom={true}
+              doubleClickZoom={true}
             >
               <Source
                 id="mapbox-terrain"
@@ -208,17 +211,13 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
             </Map>
             
             {coordinates && (
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="pointer-events-auto">
-                  <DrawingCanvas
-                    activeTool={activeTool}
-                    width={canvasSize.width}
-                    height={canvasSize.height}
-                    objects={objects}
-                    setObjects={setObjects}
-                  />
-                </div>
-              </div>
+              <DrawingCanvas
+                activeTool={activeTool}
+                width={canvasSize.width}
+                height={canvasSize.height}
+                objects={objects}
+                setObjects={setObjects}
+              />
             )}
           </div>
         </div>
