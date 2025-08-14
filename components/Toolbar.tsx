@@ -7,6 +7,7 @@ interface ToolbarProps {
 
 const tools = [
   { id: 'select', name: 'Select', icon: '👆' },
+  { id: 'delete', name: 'Delete', icon: '🗑️' },
   { id: 'chicken_coop', name: 'Chicken Coop', icon: '🐔' },
   { id: 'food_forest', name: 'Food Forest', icon: '🌳' },
   { id: 'swale', name: 'Swale', icon: '〰️' },
@@ -29,8 +30,12 @@ export default function Toolbar({ activeTool, onToolSelect }: ToolbarProps) {
               flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all
               ${
                 activeTool === tool.id
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
-                  : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-800'
+                  ? tool.id === 'delete' 
+                    ? 'border-red-500 bg-red-50 text-red-700 font-semibold'
+                    : 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                  : tool.id === 'delete'
+                    ? 'border-gray-300 hover:border-red-400 hover:bg-red-50 text-gray-800'
+                    : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-800'
               }
             `}
           >

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Stage, Layer, Rect, Circle, Line, Text, Group } from 'react-konva'
+import { Stage, Layer, Rect, Circle, Line, Text, Group, Transformer } from 'react-konva'
 import Konva from 'konva'
 
 interface DrawingCanvasProps {
@@ -28,16 +28,29 @@ export interface DrawingObject {
 export default function DrawingCanvas({ activeTool, width, height, objects, setObjects }: DrawingCanvasProps) {
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentLine, setCurrentLine] = useState<number[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const stageRef = useRef<Konva.Stage>(null)
+  const transformerRef = useRef<Konva.Transformer>(null)
 
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!activeTool || activeTool === 'select') return
+    // If clicking on empty space, deselect
+    const clickedOnEmpty = e.target === e.target.getStage()
+    if (clickedOnEmpty) {
+      setSelectedId(null)
+    }
+
+    if (!activeTool) return
 
     const stage = e.target.getStage()
     if (!stage) return
 
     const point = stage.getPointerPosition()
     if (!point) return
+
+    if (activeTool === 'select' || activeTool === 'delete') {
+      // Selection/deletion is handled by clicking on objects
+      return
+    }
 
     const newId = `object_${Date.now()}`
 
@@ -138,8 +151,21 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
     setObjects(updatedObjects)
   }
 
+  const handleObjectClick = (id: string) => {
+    if (activeTool === 'delete') {
+      // Delete the object
+      setObjects(objects.filter(obj => obj.id !== id))
+      setSelectedId(null)
+    } else if (activeTool === 'select') {
+      // Select the object
+      setSelectedId(id)
+    }
+  }
+
   const renderObject = (obj: DrawingObject) => {
     const isDraggable = activeTool === 'select'
+    const isSelected = selectedId === obj.id && activeTool === 'select'
+    const cursorStyle = activeTool === 'delete' ? 'pointer' : activeTool === 'select' ? 'move' : 'default'
 
     switch (obj.type) {
       case 'swale':
@@ -148,11 +174,17 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
             key={obj.id}
             points={obj.points}
             stroke={obj.color}
-            strokeWidth={4}
+            strokeWidth={isSelected ? 6 : 4}
             lineCap="round"
             lineJoin="round"
             draggable={isDraggable}
             onDragEnd={(e) => handleDragEnd(e, obj.id)}
+            onClick={() => handleObjectClick(obj.id)}
+            onTap={() => handleObjectClick(obj.id)}
+            shadowEnabled={isSelected}
+            shadowColor="blue"
+            shadowBlur={10}
+            shadowOpacity={0.5}
           />
         )
       case 'food_forest':
@@ -164,11 +196,19 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
             y={obj.y}
             draggable={isDraggable}
             onDragEnd={(e) => handleDragEnd(e, obj.id)}
+            onClick={() => handleObjectClick(obj.id)}
+            onTap={() => handleObjectClick(obj.id)}
           >
             <Circle
               radius={obj.radius || 30}
               fill={obj.color}
               opacity={0.6}
+              stroke={isSelected ? 'blue' : undefined}
+              strokeWidth={isSelected ? 3 : 0}
+              shadowEnabled={isSelected}
+              shadowColor="blue"
+              shadowBlur={10}
+              shadowOpacity={0.5}
             />
             <Text
               text={obj.text}
@@ -186,6 +226,8 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
             y={obj.y}
             draggable={isDraggable}
             onDragEnd={(e) => handleDragEnd(e, obj.id)}
+            onClick={() => handleObjectClick(obj.id)}
+            onTap={() => handleObjectClick(obj.id)}
           >
             <Rect
               width={obj.width || 50}
@@ -194,6 +236,12 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
               opacity={0.6}
               offsetX={(obj.width || 50) / 2}
               offsetY={(obj.height || 50) / 2}
+              stroke={isSelected ? 'blue' : undefined}
+              strokeWidth={isSelected ? 3 : 0}
+              shadowEnabled={isSelected}
+              shadowColor="blue"
+              shadowBlur={10}
+              shadowOpacity={0.5}
             />
             <Text
               text={obj.text}
@@ -206,6 +254,12 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
     }
   }
 
+  const getCursorStyle = () => {
+    if (activeTool === 'select') return 'move'
+    if (activeTool === 'delete') return 'crosshair'
+    return 'crosshair'
+  }
+
   return (
     <div className="absolute inset-0">
       <Stage
@@ -215,7 +269,7 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        style={{ cursor: activeTool === 'select' ? 'move' : 'crosshair' }}
+        style={{ cursor: getCursorStyle() }}
       >
         <Layer>
           {objects.map(renderObject)}
@@ -230,6 +284,18 @@ export default function DrawingCanvas({ activeTool, width, height, objects, setO
           )}
         </Layer>
       </Stage>
+      
+      {/* Instructions overlay */}
+      {activeTool === 'delete' && (
+        <div className="absolute top-4 left-4 bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded-lg pointer-events-none">
+          <p className="text-sm font-medium">Click on any item to delete it</p>
+        </div>
+      )}
+      {activeTool === 'select' && (
+        <div className="absolute top-4 left-4 bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded-lg pointer-events-none">
+          <p className="text-sm font-medium">Click and drag items to move them</p>
+        </div>
+      )}
     </div>
   )
 }
