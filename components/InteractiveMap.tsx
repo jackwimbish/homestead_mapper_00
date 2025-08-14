@@ -2,16 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Map, { Source, Layer } from 'react-map-gl'
+import type { MapRef } from 'react-map-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import dynamic from 'next/dynamic'
 import Toolbar from './Toolbar'
 import AuthForm from './AuthForm'
+import MapDrawingLayer from './MapDrawingLayer'
 import { useAuth } from '@/contexts/AuthContext'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { DrawingObject } from './DrawingCanvas'
-
-const DrawingCanvas = dynamic(() => import('./DrawingCanvas'), { ssr: false })
+import { MapObject } from '@/types/map'
 
 interface InteractiveMapProps {
   coordinates: {
@@ -22,28 +21,12 @@ interface InteractiveMapProps {
 
 export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
   const { user } = useAuth()
+  const mapRef = useRef<MapRef>(null)
   const [activeTool, setActiveTool] = useState<string | null>('select')
-  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
-  const [objects, setObjects] = useState<DrawingObject[]>([])
+  const [objects, setObjects] = useState<MapObject[]>([])
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showContours, setShowContours] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const updateSize = () => {
-      if (containerRef.current) {
-        setCanvasSize({
-          width: containerRef.current.offsetWidth,
-          height: 600,
-        })
-      }
-    }
-
-    updateSize()
-    window.addEventListener('resize', updateSize)
-    return () => window.removeEventListener('resize', updateSize)
-  }, [coordinates])
 
   const handleSave = async () => {
     if (!user || !coordinates) return
@@ -176,11 +159,11 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
         
         <div className="flex-grow">
           <div 
-            ref={containerRef}
             className="relative rounded-lg shadow-lg overflow-hidden"
             style={{ height: '600px' }}
           >
             <Map
+              ref={mapRef}
               mapboxAccessToken={mapboxToken}
               initialViewState={{
                 longitude: coordinates.lng,
@@ -192,7 +175,12 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
               terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
               dragPan={true}
               scrollZoom={true}
-              doubleClickZoom={true}
+              doubleClickZoom={false}
+              cursor={
+                activeTool && activeTool !== 'select' && activeTool !== 'delete' 
+                  ? 'crosshair' 
+                  : 'default'
+              }
             >
               <Source
                 id="mapbox-terrain"
@@ -208,17 +196,15 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
               />
               <Layer {...contourLayer} />
               <Layer {...contourLabelLayer} />
-            </Map>
-            
-            {coordinates && (
-              <DrawingCanvas
+
+              {/* Drawing layer for objects */}
+              <MapDrawingLayer 
+                mapRef={mapRef}
                 activeTool={activeTool}
-                width={canvasSize.width}
-                height={canvasSize.height}
                 objects={objects}
                 setObjects={setObjects}
               />
-            )}
+            </Map>
           </div>
         </div>
       </div>

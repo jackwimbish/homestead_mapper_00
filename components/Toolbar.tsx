@@ -1,23 +1,15 @@
 'use client'
 
+import { TOOL_CONFIGS } from '@/types/map'
+
 interface ToolbarProps {
   activeTool: string | null
   onToolSelect: (tool: string) => void
 }
 
-const tools = [
-  { id: 'select', name: 'Select', icon: '👆' },
-  { id: 'delete', name: 'Delete', icon: '🗑️' },
-  { id: 'chicken_coop', name: 'Chicken Coop', icon: '🐔' },
-  { id: 'food_forest', name: 'Food Forest', icon: '🌳' },
-  { id: 'swale', name: 'Swale', icon: '〰️' },
-  { id: 'garden_bed', name: 'Garden Bed', icon: '🌱' },
-  { id: 'pond', name: 'Pond', icon: '💧' },
-  { id: 'greenhouse', name: 'Greenhouse', icon: '🏡' },
-  { id: 'compost', name: 'Compost', icon: '♻️' },
-]
-
 export default function Toolbar({ activeTool, onToolSelect }: ToolbarProps) {
+  const tools = Object.values(TOOL_CONFIGS)
+
   return (
     <div className="bg-white rounded-lg shadow-lg p-4 border border-gray-200">
       <h3 className="text-sm font-bold text-gray-900 mb-3">Drawing Tools</h3>
