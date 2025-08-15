@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import Map, { Source, Layer } from 'react-map-gl'
 import type { MapRef } from 'react-map-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -8,9 +8,7 @@ import Toolbar from './Toolbar'
 import AuthForm from './AuthForm'
 import MapDrawingLayer from './MapDrawingLayer'
 import { useAuth } from '@/contexts/AuthContext'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
-import { MapObject } from '@/types/map'
+import { useHomesteadDesign } from '@/hooks/useHomesteadDesign'
 
 interface InteractiveMapProps {
   coordinates: {
@@ -23,54 +21,18 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
   const { user } = useAuth()
   const mapRef = useRef<MapRef>(null)
   const [activeTool, setActiveTool] = useState<string | null>('select')
-  const [objects, setObjects] = useState<MapObject[]>([])
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [showContours, setShowContours] = useState(false)
-
-  const handleSave = async () => {
-    if (!user || !coordinates) return
-
-    setSaving(true)
-    try {
-      const designData = {
-        objects,
-        coordinates,
-        updatedAt: new Date().toISOString(),
-      }
-
-      await setDoc(doc(db, 'designs', user.uid), designData)
-      alert('Design saved successfully!')
-    } catch (error) {
-      console.error('Error saving design:', error)
-      alert('Failed to save design')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleLoad = async () => {
-    if (!user) return
-
-    setLoading(true)
-    try {
-      const docRef = doc(db, 'designs', user.uid)
-      const docSnap = await getDoc(docRef)
-
-      if (docSnap.exists()) {
-        const data = docSnap.data()
-        setObjects(data.objects || [])
-        alert('Design loaded successfully!')
-      } else {
-        alert('No saved design found')
-      }
-    } catch (error) {
-      console.error('Error loading design:', error)
-      alert('Failed to load design')
-    } finally {
-      setLoading(false)
-    }
-  }
+  
+  // Use the centralized data hook
+  const {
+    objects,
+    setObjects,
+    saveDesign,
+    loadDesign,
+    status,
+    error,
+    hasUnsavedChanges
+  } = useHomesteadDesign(user, coordinates)
 
   if (!coordinates) {
     return (
@@ -126,19 +88,33 @@ export default function InteractiveMap({ coordinates }: InteractiveMapProps) {
           {user && (
             <div className="bg-white rounded-lg shadow-lg p-4 space-y-2 border border-gray-200">
               <h3 className="text-sm font-bold text-gray-900 mb-2">Save & Load</h3>
+              
+              {/* Status indicator */}
+              {status === 'success' && (
+                <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">
+                  ✓ Operation successful
+                </div>
+              )}
+              {error && (
+                <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
+                  {error}
+                </div>
+              )}
+              
               <button
-                onClick={handleSave}
-                disabled={saving || objects.length === 0}
+                onClick={saveDesign}
+                disabled={status === 'saving' || objects.length === 0}
                 className="w-full px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
               >
-                {saving ? 'Saving...' : 'Save Design'}
+                {status === 'saving' ? 'Saving...' : 'Save Design'}
+                {hasUnsavedChanges && ' •'}
               </button>
               <button
-                onClick={handleLoad}
-                disabled={loading}
+                onClick={loadDesign}
+                disabled={status === 'loading'}
                 className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
-                {loading ? 'Loading...' : 'Load Design'}
+                {status === 'loading' ? 'Loading...' : 'Load Design'}
               </button>
             </div>
           )}
