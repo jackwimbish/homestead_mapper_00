@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Source, Layer } from 'react-map-gl'
 import type { MapRef, MapMouseEvent } from 'react-map-gl'
 import { MapObject, ObjectType, TOOL_CONFIGS } from '@/types/map'
-import { generateIcon, ICON_CONFIG } from '@/lib/mapIcons'
+import { getPolygonForObject } from '@/lib/polygonUtils'
 
 interface MapDrawingLayerProps {
   mapRef: React.RefObject<MapRef>
@@ -23,34 +23,8 @@ export default function MapDrawingLayer({
   const [isDrawingLine, setIsDrawingLine] = useState(false)
   const [currentLine, setCurrentLine] = useState<[number, number][]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const dragStartRef = useRef<{ id: string; startLng: number; startLat: number } | null>(null)
+  const dragStartRef = useRef<{ id: string; startLng: number; startLat: number; originalCoords: [number, number] } | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
-
-  // Load icons into the map
-  useEffect(() => {
-    if (!mapRef.current) return
-    const map = mapRef.current
-
-    const loadIcons = () => {
-      Object.entries(ICON_CONFIG).forEach(([type, config]) => {
-        if (!map.hasImage(type)) {
-          try {
-            const canvas = generateIcon(config.emoji, config.color)
-            const imageData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
-            map.addImage(type, imageData)
-          } catch (error) {
-            console.error(`Failed to create icon ${type}:`, error)
-          }
-        }
-      })
-    }
-
-    if (map.loaded()) {
-      loadIcons()
-    } else {
-      map.on('load', loadIcons)
-    }
-  }, [mapRef])
 
   // Handle map interactions
   useEffect(() => {
@@ -60,9 +34,9 @@ export default function MapDrawingLayer({
     const handleMapClick = (e: MapMouseEvent) => {
       const { lng, lat } = e.lngLat
 
-      // Check if we clicked on a point feature
+      // Check if we clicked on a polygon feature
       const features = map.queryRenderedFeatures(e.point, {
-        layers: ['drawing-points-layer']
+        layers: ['drawing-polygons-fill']
       })
 
       if (features.length > 0) {
@@ -130,7 +104,7 @@ export default function MapDrawingLayer({
     const handleMouseMove = (e: MapMouseEvent) => {
       // Handle hover effects
       const features = map.queryRenderedFeatures(e.point, {
-        layers: ['drawing-points-layer', 'drawing-lines-layer']
+        layers: ['drawing-polygons-fill', 'drawing-lines-layer']
       })
 
       if (features.length > 0) {
@@ -151,15 +125,20 @@ export default function MapDrawingLayer({
       // Handle dragging
       if (isDragging && dragStartRef.current && activeTool === 'select') {
         const { lng, lat } = e.lngLat
-        const draggedObject = objects.find(obj => obj.id === dragStartRef.current?.id)
+        const deltaLng = lng - dragStartRef.current.startLng
+        const deltaLat = lat - dragStartRef.current.startLat
         
-        if (draggedObject && draggedObject.type === 'point') {
-          setObjects(objects.map(obj => 
-            obj.id === dragStartRef.current?.id 
-              ? { ...obj, coordinates: [lng, lat] }
-              : obj
-          ))
-        }
+        setObjects(objects.map(obj => 
+          obj.id === dragStartRef.current?.id 
+            ? { 
+                ...obj, 
+                coordinates: [
+                  dragStartRef.current.originalCoords[0] + deltaLng,
+                  dragStartRef.current.originalCoords[1] + deltaLat
+                ] as [number, number]
+              }
+            : obj
+        ))
       }
     }
 
@@ -167,7 +146,7 @@ export default function MapDrawingLayer({
       if (activeTool !== 'select') return
 
       const features = map.queryRenderedFeatures(e.point, {
-        layers: ['drawing-points-layer']
+        layers: ['drawing-polygons-fill']
       })
 
       if (features.length > 0) {
@@ -175,10 +154,18 @@ export default function MapDrawingLayer({
         const id = feature.properties?.id
         const { lng, lat } = e.lngLat
         
-        setIsDragging(true)
-        dragStartRef.current = { id, startLng: lng, startLat: lat }
-        setSelectedId(id)
-        e.preventDefault()
+        const obj = objects.find(o => o.id === id)
+        if (obj && obj.type === 'point') {
+          setIsDragging(true)
+          dragStartRef.current = { 
+            id, 
+            startLng: lng, 
+            startLat: lat,
+            originalCoords: obj.coordinates as [number, number]
+          }
+          setSelectedId(id)
+          e.preventDefault()
+        }
       }
     }
 
@@ -223,8 +210,35 @@ export default function MapDrawingLayer({
     }
   }, [mapRef, activeTool, objects, setObjects, isDrawingLine, currentLine, isDragging, selectedId])
 
-  // Prepare GeoJSON for points
-  const pointFeatures = objects
+  // Convert point objects to polygon features
+  const polygonFeatures = objects
+    .filter(obj => obj.type === 'point')
+    .map(obj => {
+      const polygonCoords = getPolygonForObject(
+        obj.properties.objectType,
+        obj.coordinates as [number, number]
+      )
+      
+      return {
+        type: 'Feature' as const,
+        properties: {
+          id: obj.id,
+          ...obj.properties
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [polygonCoords]
+        }
+      }
+    })
+
+  const polygonGeoJson = {
+    type: 'FeatureCollection' as const,
+    features: polygonFeatures
+  }
+
+  // Label points for emoji display
+  const labelFeatures = objects
     .filter(obj => obj.type === 'point')
     .map(obj => ({
       type: 'Feature' as const,
@@ -238,9 +252,9 @@ export default function MapDrawingLayer({
       }
     }))
 
-  const pointGeoJson = {
+  const labelGeoJson = {
     type: 'FeatureCollection' as const,
-    features: pointFeatures
+    features: labelFeatures
   }
 
   // Prepare GeoJSON for lines
@@ -283,6 +297,78 @@ export default function MapDrawingLayer({
 
   return (
     <>
+      {/* Polygon fill layer for point objects */}
+      <Source id="drawing-polygons" type="geojson" data={polygonGeoJson}>
+        <Layer
+          id="drawing-polygons-fill"
+          type="fill"
+          paint={{
+            'fill-color': ['get', 'color'],
+            'fill-opacity': ['case',
+              ['==', ['get', 'id'], hoveredId],
+              0.7,
+              ['==', ['get', 'id'], selectedId],
+              0.7,
+              0.5
+            ]
+          }}
+        />
+        <Layer
+          id="drawing-polygons-outline"
+          type="line"
+          paint={{
+            'line-color': ['case',
+              ['==', ['get', 'id'], selectedId],
+              '#0000FF',
+              ['==', ['get', 'id'], hoveredId],
+              activeTool === 'delete' ? '#FF0000' : '#4444FF',
+              '#FFFFFF'
+            ],
+            'line-width': ['case',
+              ['==', ['get', 'id'], selectedId],
+              3,
+              ['==', ['get', 'id'], hoveredId],
+              2,
+              1
+            ],
+            'line-opacity': ['case',
+              ['==', ['get', 'id'], selectedId],
+              1,
+              ['==', ['get', 'id'], hoveredId],
+              1,
+              0.5
+            ]
+          }}
+        />
+      </Source>
+
+      {/* Labels for polygon objects */}
+      <Source id="drawing-labels" type="geojson" data={labelGeoJson}>
+        <Layer
+          id="drawing-labels-layer"
+          type="symbol"
+          layout={{
+            'text-field': ['get', 'icon'],
+            'text-size': [
+              'interpolate',
+              ['exponential', 1.5],
+              ['zoom'],
+              10, 12,
+              20, 32
+            ],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+            'text-anchor': 'center'
+          }}
+          paint={{
+            'text-color': '#FFFFFF',
+            'text-halo-color': '#000000',
+            'text-halo-width': 1,
+            'text-halo-blur': 1
+          }}
+        />
+      </Source>
+
       {/* Lines layer (swales) */}
       <Source id="drawing-lines" type="geojson" data={lineGeoJson}>
         <Layer
@@ -292,11 +378,10 @@ export default function MapDrawingLayer({
             'line-color': ['get', 'color'],
             'line-width': [
               'interpolate',
-              ['exponential', 2],
+              ['exponential', 1.5],
               ['zoom'],
-              12, 2,
-              16, 4,
-              20, 8
+              10, 1,
+              20, 6
             ],
             'line-opacity': ['case',
               ['==', ['get', 'id'], 'drawing-line'],
@@ -322,64 +407,16 @@ export default function MapDrawingLayer({
             'line-color': '#0000FF',
             'line-width': [
               'interpolate',
-              ['exponential', 2],
+              ['exponential', 1.5],
               ['zoom'],
-              12, 4,
-              16, 8,
-              20, 16
+              10, 2,
+              20, 12
             ],
             'line-opacity': 0.3
           }}
           layout={{
             'line-cap': 'round',
             'line-join': 'round'
-          }}
-        />
-      </Source>
-
-      {/* Points layer */}
-      <Source id="drawing-points" type="geojson" data={pointGeoJson}>
-        <Layer
-          id="drawing-points-layer"
-          type="symbol"
-          layout={{
-            'icon-image': ['get', 'objectType'],
-            'icon-size': [
-              'interpolate',
-              ['exponential', 2],
-              ['zoom'],
-              12, 0.3,
-              16, 0.6,
-              18, 1,
-              20, 1.5
-            ],
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-            'icon-anchor': 'center'
-          }}
-          paint={{
-            'icon-opacity': ['case',
-              ['==', ['get', 'id'], hoveredId],
-              1,
-              ['==', ['get', 'id'], selectedId],
-              1,
-              0.9
-            ],
-            'icon-halo-color': ['case',
-              ['==', ['get', 'id'], selectedId],
-              '#0000FF',
-              ['==', ['get', 'id'], hoveredId],
-              activeTool === 'delete' ? '#FF0000' : '#4444FF',
-              '#FFFFFF'
-            ],
-            'icon-halo-width': ['case',
-              ['==', ['get', 'id'], selectedId],
-              3,
-              ['==', ['get', 'id'], hoveredId],
-              2,
-              0
-            ],
-            'icon-halo-blur': 1
           }}
         />
       </Source>
