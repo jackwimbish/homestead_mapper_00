@@ -11,6 +11,7 @@ export interface MapObject {
   id: string
   type: 'point' | 'line'
   coordinates: [number, number] | [number, number][]
+  rotation?: number  // Rotation in degrees (0-360)
   properties: {
     objectType: ObjectType
     color: string

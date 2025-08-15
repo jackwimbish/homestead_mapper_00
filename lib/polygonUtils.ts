@@ -49,36 +49,72 @@ export const createSquarePolygon = (
   return createRectanglePolygon(center, sizeInMeters, sizeInMeters)
 }
 
+// Rotate a point around a center
+export const rotatePoint = (
+  point: [number, number],
+  center: [number, number],
+  angleDegrees: number
+): [number, number] => {
+  const angleRad = (angleDegrees * Math.PI) / 180
+  const cos = Math.cos(angleRad)
+  const sin = Math.sin(angleRad)
+  
+  const dx = point[0] - center[0]
+  const dy = point[1] - center[1]
+  
+  return [
+    center[0] + dx * cos - dy * sin,
+    center[1] + dx * sin + dy * cos
+  ]
+}
+
+// Apply rotation to polygon coordinates
+export const rotatePolygon = (
+  coords: [number, number][],
+  center: [number, number],
+  rotation: number
+): [number, number][] => {
+  if (!rotation || rotation === 0) return coords
+  return coords.map(point => rotatePoint(point, center, rotation))
+}
+
 // Get polygon coordinates based on object type
 export const getPolygonForObject = (
   objectType: string,
-  center: [number, number]
+  center: [number, number],
+  rotation?: number
 ): [number, number][] => {
   // Sizes are in meters - adjust these to match your desired real-world scale
+  let coords: [number, number][]
+  
   switch (objectType) {
     case 'chicken_coop':
       // Square shape, ~10m x 10m
-      return createSquarePolygon(center, 10)
+      coords = createSquarePolygon(center, 10)
+      return rotatePolygon(coords, center, rotation || 0)
     
     case 'food_forest':
-      // Circle shape, ~15m radius
+      // Circle shape, ~15m radius (no rotation needed for circles)
       return createCirclePolygon(center, 15)
     
     case 'garden_bed':
       // Rectangle shape, ~12m x 6m
-      return createRectanglePolygon(center, 12, 6)
+      coords = createRectanglePolygon(center, 12, 6)
+      return rotatePolygon(coords, center, rotation || 0)
     
     case 'pond':
-      // Circle shape, ~12m radius
+      // Circle shape, ~12m radius (no rotation needed for circles)
       return createCirclePolygon(center, 12)
     
     case 'greenhouse':
       // Rectangle shape, ~15m x 10m
-      return createRectanglePolygon(center, 15, 10)
+      coords = createRectanglePolygon(center, 15, 10)
+      return rotatePolygon(coords, center, rotation || 0)
     
     case 'compost':
       // Small square, ~5m x 5m
-      return createSquarePolygon(center, 5)
+      coords = createSquarePolygon(center, 5)
+      return rotatePolygon(coords, center, rotation || 0)
     
     default:
       // Default to small circle

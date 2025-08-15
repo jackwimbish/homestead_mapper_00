@@ -25,6 +25,7 @@ export default function MapDrawingLayer({
   const [isDragging, setIsDragging] = useState(false)
   const dragStartRef = useRef<{ id: string; startLng: number; startLat: number; originalCoords: [number, number] } | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [isRotating, setIsRotating] = useState(false)
 
   // Handle map interactions
   useEffect(() => {
@@ -210,13 +211,59 @@ export default function MapDrawingLayer({
     }
   }, [mapRef, activeTool, objects, setObjects, isDrawingLine, currentLine, isDragging, selectedId])
 
+  // Handle keyboard controls for rotation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedId || activeTool !== 'select') return
+      
+      const selectedObj = objects.find(obj => obj.id === selectedId)
+      if (!selectedObj || selectedObj.type !== 'point') return
+      
+      // Check if it's a rotatable object (rectangles and squares)
+      const rotatableTypes = ['chicken_coop', 'garden_bed', 'greenhouse', 'compost']
+      if (!rotatableTypes.includes(selectedObj.properties.objectType)) return
+      
+      let rotationDelta = 0
+      
+      if (e.key === 'r' || e.key === 'R') {
+        // R key: rotate 45 degrees clockwise
+        rotationDelta = 45
+      } else if (e.key === 'e' || e.key === 'E') {
+        // E key: rotate 45 degrees counter-clockwise
+        rotationDelta = -45
+      } else if (e.key === 'ArrowLeft') {
+        // Left arrow: rotate 15 degrees counter-clockwise
+        rotationDelta = -15
+      } else if (e.key === 'ArrowRight') {
+        // Right arrow: rotate 15 degrees clockwise
+        rotationDelta = 15
+      }
+      
+      if (rotationDelta !== 0) {
+        e.preventDefault()
+        setObjects(objects.map(obj => 
+          obj.id === selectedId
+            ? { 
+                ...obj, 
+                rotation: ((obj.rotation || 0) + rotationDelta + 360) % 360
+              }
+            : obj
+        ))
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedId, activeTool, objects, setObjects])
+
   // Convert point objects to polygon features
   const polygonFeatures = objects
     .filter(obj => obj.type === 'point')
     .map(obj => {
       const polygonCoords = getPolygonForObject(
         obj.properties.objectType,
-        obj.coordinates as [number, number]
+        obj.coordinates as [number, number],
+        obj.rotation
       )
       
       return {
@@ -431,7 +478,26 @@ export default function MapDrawingLayer({
         <div className="absolute top-4 left-4 bg-blue-100 border border-blue-400 text-blue-700 px-3 py-2 rounded-lg pointer-events-none z-10">
           <p className="text-sm font-medium">
             • Click and drag items to move them<br/>
-            • Drag the map to pan around
+            • Drag the map to pan around<br/>
+            {(() => {
+              const selectedObj = objects.find(obj => obj.id === selectedId)
+              const rotatableTypes = ['chicken_coop', 'garden_bed', 'greenhouse', 'compost']
+              if (selectedObj && rotatableTypes.includes(selectedObj.properties.objectType)) {
+                return (
+                  <>
+                    <br/>
+                    <span className="text-blue-800 font-semibold">Rotation Controls:</span><br/>
+                    • Press R: Rotate 45° clockwise<br/>
+                    • Press E: Rotate 45° counter-clockwise<br/>
+                    • Arrow keys: Fine rotation (15°)<br/>
+                    {selectedObj.rotation && (
+                      <span className="text-blue-600">Current: {Math.round(selectedObj.rotation)}°</span>
+                    )}
+                  </>
+                )
+              }
+              return null
+            })()}
           </p>
         </div>
       )}
