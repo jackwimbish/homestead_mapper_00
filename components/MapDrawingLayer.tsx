@@ -26,6 +26,7 @@ export default function MapDrawingLayer({
   const dragStartRef = useRef<{ id: string; startLng: number; startLat: number; originalCoords: [number, number] } | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [isRotating, setIsRotating] = useState(false)
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null)
 
   // Handle map interactions
   useEffect(() => {
@@ -103,6 +104,9 @@ export default function MapDrawingLayer({
     }
 
     const handleMouseMove = (e: MapMouseEvent) => {
+      // Update mouse position for tooltip
+      setMousePosition({ x: e.point.x, y: e.point.y })
+      
       // Handle hover effects
       const features = map.queryRenderedFeatures(e.point, {
         layers: ['drawing-polygons-fill', 'drawing-lines-layer']
@@ -117,6 +121,7 @@ export default function MapDrawingLayer({
           'pointer'
       } else {
         setHoveredId(null)
+        setMousePosition(null)
         map.getCanvas().style.cursor = 
           activeTool && activeTool !== 'select' && activeTool !== 'delete' 
             ? 'crosshair' 
@@ -511,6 +516,37 @@ export default function MapDrawingLayer({
           </p>
         </div>
       )}
+      
+      {/* Hover tooltip */}
+      {hoveredId && mousePosition && !isDragging && (() => {
+        const hoveredObj = objects.find(obj => obj.id === hoveredId)
+        if (!hoveredObj) return null
+        
+        const displayName = hoveredObj.properties.name || 
+          hoveredObj.properties.objectType.replace(/_/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase())
+        
+        return (
+          <div
+            className="absolute bg-gray-900 text-white px-2 py-1 rounded-md shadow-lg pointer-events-none z-50 text-sm font-medium whitespace-nowrap"
+            style={{
+              left: `${mousePosition.x + 15}px`,
+              top: `${mousePosition.y - 30}px`,
+              animation: 'fadeIn 0.2s ease-in'
+            }}
+          >
+            <div className="flex items-center gap-1">
+              <span className="text-lg">{hoveredObj.properties.icon}</span>
+              <span>{displayName}</span>
+            </div>
+            {hoveredObj.rotation !== undefined && hoveredObj.rotation !== 0 && (
+              <div className="text-xs text-gray-300 mt-0.5">
+                Rotation: {Math.round(hoveredObj.rotation)}°
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </>
   )
 }
