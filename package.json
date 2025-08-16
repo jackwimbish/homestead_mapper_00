@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@mapbox/mapbox-gl-draw": "^1.5.0",
     "@supabase/supabase-js": "^2.55.0",
+    "@turf/turf": "^6.5.0",
     "konva": "^9.3.22",
     "mapbox-gl": "^3.14.0",
     "next": "15.4.6",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/mapbox__mapbox-gl-draw": "^1.4.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

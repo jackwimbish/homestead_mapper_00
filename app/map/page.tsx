@@ -6,7 +6,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import AddressForm from '@/components/AddressForm'
 import dynamic from 'next/dynamic'
 
-const InteractiveMap = dynamic(() => import('@/components/InteractiveMap'), { ssr: false })
+const InteractiveMapDraw = dynamic(() => import('@/components/InteractiveMapDraw'), { 
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-screen">Loading map...</div>
+})
 
 export default function MapPage() {
   const { user, loading } = useAuth()
@@ -56,36 +59,38 @@ export default function MapPage() {
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Homestead Mapping Application
-          </h1>
-          <p className="text-lg text-gray-600">
-            Enter a property address to start mapping your homestead
-          </p>
-        </div>
-        
-        <div className="flex flex-col items-center gap-8">
-          <AddressForm onSubmit={handleAddressSubmit} />
+  if (!coordinates) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Homestead Mapping Application
+            </h1>
+            <p className="text-lg text-gray-600">
+              Enter a property address to start mapping your homestead
+            </p>
+          </div>
           
-          {isLoading && (
-            <div className="text-center">
-              <p className="text-gray-600">Loading map...</p>
-            </div>
-          )}
-          
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-          
-          <InteractiveMap coordinates={coordinates} />
+          <div className="flex flex-col items-center gap-8">
+            <AddressForm onSubmit={handleAddressSubmit} />
+            
+            {isLoading && (
+              <div className="text-center">
+                <p className="text-gray-600">Loading map...</p>
+              </div>
+            )}
+            
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  return <InteractiveMapDraw coordinates={coordinates} />
 }
