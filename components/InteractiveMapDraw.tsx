@@ -43,6 +43,7 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
     start: { x: number; y: number } | null
     rectEl: HTMLDivElement | null
   }>({ active: false, start: null, rectEl: null })
+  const [mapHasFocus, setMapHasFocus] = useState(false)
   
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -106,7 +107,7 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
   const updateSelectedFeatures = useCallback(() => {
     if (!drawRef.current) return
     const selected = drawRef.current.getSelected()
-    setSelectedFeatures(selected.features)
+    setSelectedFeatures(selected.features || [])
   }, [])
 
   // Initialize Draw control after map loads
@@ -489,11 +490,16 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
       for (let ix = 0; ix < cols; ix++) {
         const cellCenter = turf.transformTranslate(rowOrigin, ix * spacingM, 90, { units: 'meters' })
         
-        const templateCentroid = turf.centerOfMass(templateFeature)
+        // Create a deep copy of the template feature
+        const featureCopy = JSON.parse(JSON.stringify(templateFeature))
+        const templateCentroid = turf.centerOfMass(featureCopy)
         const bearing = turf.bearing(templateCentroid, cellCenter)
         const distance = turf.distance(templateCentroid, cellCenter, { units: 'meters' })
         
-        const moved = turf.transformTranslate(templateFeature, distance, bearing, { units: 'meters' })
+        const moved = turf.transformTranslate(featureCopy, distance, bearing, { units: 'meters' })
+        // Generate unique ID for each grid item
+        const newId = `grid-${Date.now()}-${ix}-${iy}`
+        moved.id = newId
         moved.properties = { ...(templateFeature.properties || {}), name: `${templateFeature.properties?.name || 'feature'}-grid` }
         newFeatures.push(moved)
       }
@@ -591,9 +597,10 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
   // Copy/paste functionality
   const handleCopy = useCallback(() => {
     if (selectedFeatures.length === 0) return
+    // Deep clone the features to avoid reference issues
     setClipboard({
       type: 'features',
-      features: selectedFeatures.map(f => ({ ...f }))
+      features: selectedFeatures.map(f => JSON.parse(JSON.stringify(f)))
     })
   }, [selectedFeatures])
 
@@ -603,8 +610,18 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
     const offsetMeters = 3 * METERS_PER_FOOT
     
     clipboard.features.forEach((feature: any) => {
-      const moved = turf.transformTranslate(feature, offsetMeters, 90, { units: 'meters' })
-      moved.properties = { ...feature.properties, name: `${feature.properties?.name || 'feature'}-copy` }
+      // Create a deep copy of the feature before transforming
+      const featureCopy = JSON.parse(JSON.stringify(feature))
+      const moved = turf.transformTranslate(featureCopy, offsetMeters, 90, { units: 'meters' })
+      
+      // Generate a new unique ID for the pasted feature
+      const newId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      moved.id = newId
+      moved.properties = { 
+        ...(feature.properties || {}), 
+        name: `${feature.properties?.name || 'feature'}-copy` 
+      }
+      
       drawRef.current?.add(moved)
     })
   }, [clipboard])
@@ -668,16 +685,46 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
     setGroups(newGroups)
   }, [selectedFeatures, groups, featureToGroup])
 
+  // Focus tracking for keyboard shortcuts
+  useEffect(() => {
+    if (!mapRef.current) return
+    
+    const mapContainer = mapRef.current.getMap().getContainer()
+    
+    const handleMapMouseDown = () => setMapHasFocus(true)
+    const handleOtherMouseDown = () => setMapHasFocus(false)
+    
+    mapContainer.addEventListener('mousedown', handleMapMouseDown)
+    
+    return () => {
+      mapContainer.removeEventListener('mousedown', handleMapMouseDown)
+    }
+  }, [isMapReady])
+  
+  // Helper to check if we should handle hotkeys
+  const shouldHandleMapHotkeys = (e: KeyboardEvent): boolean => {
+    const target = e.target as HTMLElement
+    if (!target) return false
+    
+    const tag = target.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return false
+    if (target.isContentEditable) return false
+    
+    return mapHasFocus
+  }
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (!shouldHandleMapHotkeys(e)) return
+      
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
       
-      if (ctrlOrCmd && e.key === 'c') {
+      if (ctrlOrCmd && e.key.toLowerCase() === 'c') {
         e.preventDefault()
         handleCopy()
-      } else if (ctrlOrCmd && e.key === 'v') {
+      } else if (ctrlOrCmd && e.key.toLowerCase() === 'v') {
         e.preventDefault()
         handlePaste()
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -690,24 +737,26 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
     
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleCopy, handlePaste, handleDelete, selectedFeatures])
+  }, [handleCopy, handlePaste, handleDelete, selectedFeatures, mapHasFocus])
 
   return (
     <div className="h-screen flex">
-      <DrawToolbar
-        activeTool={activeTool}
-        onToolSelect={handleToolSelect}
-        onPlantSelect={handlePlantSelect}
-        onGroup={handleGroup}
-        onUngroup={handleUngroup}
-        onDrag={handleStartDrag}
-        onRotate={handleStartRotate}
-        onStop={handleStopTransform}
-        canGroup={selectedFeatures.length > 1}
-        canUngroup={selectedFeatures.some(f => f.id && featureToGroup.has(f.id))}
-        canRotate={!(selectedFeatures.length === 1 && selectedFeatures[0].properties?.eeShape === 'circle')}
-        transformMode={transform.mode}
-      />
+      <div onMouseDown={() => setMapHasFocus(false)}>
+        <DrawToolbar
+          activeTool={activeTool}
+          onToolSelect={handleToolSelect}
+          onPlantSelect={handlePlantSelect}
+          onGroup={handleGroup}
+          onUngroup={handleUngroup}
+          onDrag={handleStartDrag}
+          onRotate={handleStartRotate}
+          onStop={handleStopTransform}
+          canGroup={selectedFeatures.length > 1}
+          canUngroup={selectedFeatures.some(f => f.id && featureToGroup.has(f.id))}
+          canRotate={!(selectedFeatures.length === 1 && selectedFeatures[0]?.properties?.eeShape === 'circle')}
+          transformMode={transform.mode}
+        />
+      </div>
       
       <div className="flex-1 relative">
         <MapGL
@@ -731,12 +780,14 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
         />
       </div>
       
-      <Inspector
-        selectedFeatures={selectedFeatures}
-        groups={groups}
-        featureToGroup={featureToGroup}
-        drawRef={drawRef}
-      />
+      <div onMouseDown={() => setMapHasFocus(false)}>
+        <Inspector
+          selectedFeatures={selectedFeatures}
+          groups={groups}
+          featureToGroup={featureToGroup}
+          drawRef={drawRef}
+        />
+      </div>
     </div>
   )
 }
