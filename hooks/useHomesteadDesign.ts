@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { supabase } from '@/lib/supabaseClient'
+import { User } from '@supabase/supabase-js'
 import { MapObject } from '@/types/map'
-import { User } from 'firebase/auth'
 
 type Status = 'idle' | 'loading' | 'saving' | 'error' | 'success'
 
@@ -41,12 +40,21 @@ export function useHomesteadDesign(
     
     try {
       const designData = {
+        id: user.id, // Supabase user ID is 'id', not 'uid'
         objects,
         coordinates,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }
 
-      await setDoc(doc(db, 'designs', user.uid), designData)
+      const { error: upsertError } = await supabase.from('designs').upsert(designData)
+
+      if (upsertError) {
+        console.error('Error saving design:', upsertError)
+        setError(upsertError.message)
+        setStatus('error')
+        return
+      }
+
       setOriginalObjects(objects) // Update the baseline after successful save
       setStatus('success')
       
@@ -69,11 +77,20 @@ export function useHomesteadDesign(
     setError(null)
     
     try {
-      const docRef = doc(db, 'designs', user.uid)
-      const docSnap = await getDoc(docRef)
+      const { data, error: selectError } = await supabase
+        .from('designs')
+        .select('*')
+        .eq('id', user.id)
+        .single()
 
-      if (docSnap.exists()) {
-        const data = docSnap.data()
+      if (selectError && selectError.code !== 'PGRST116') { // PGRST116 is the code for 'No rows found'
+        console.error('Error loading design:', selectError)
+        setError(selectError.message)
+        setStatus('error')
+        return
+      }
+
+      if (data) {
         const loadedObjects = data.objects || []
         setObjects(loadedObjects)
         setOriginalObjects(loadedObjects)
@@ -82,7 +99,9 @@ export function useHomesteadDesign(
         // Reset status after showing success
         setTimeout(() => setStatus('idle'), 2000)
       } else {
-        setError('No saved design found')
+        // No error, but no data. This means the user has no saved design.
+        setObjects([]) // Ensure we start with a clean slate
+        setOriginalObjects([])
         setStatus('idle')
       }
     } catch (err) {

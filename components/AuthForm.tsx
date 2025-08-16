@@ -24,8 +24,8 @@ export default function AuthForm() {
       }
       setEmail('')
       setPassword('')
-    } catch (err: any) {
-      setError(err.message || 'An error occurred')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
