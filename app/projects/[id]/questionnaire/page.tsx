@@ -66,20 +66,46 @@ export default function QuestionnairePage({ params }: { params: Promise<{ id: st
     setError(null)
 
     try {
-      const { error } = await supabase
+      // First check if a record exists
+      const { data: existing } = await supabase
         .from('questionnaire_responses')
-        .upsert({
-          project_id: currentProject.id,
-          responses,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'project_id'
-        })
+        .select('id')
+        .eq('project_id', currentProject.id)
+        .single()
 
-      if (error) throw error
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('questionnaire_responses')
+          .update({
+            responses,
+            updated_at: new Date().toISOString()
+          })
+          .eq('project_id', currentProject.id)
+
+        if (error) {
+          console.error('Error updating responses:', error)
+          throw error
+        }
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('questionnaire_responses')
+          .insert({
+            project_id: currentProject.id,
+            responses,
+            updated_at: new Date().toISOString()
+          })
+
+        if (error) {
+          console.error('Error inserting responses:', error)
+          throw error
+        }
+      }
     } catch (err) {
       console.error('Error saving responses:', err)
-      setError('Failed to save responses')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save responses'
+      setError(errorMessage)
     } finally {
       setSaving(false)
     }
