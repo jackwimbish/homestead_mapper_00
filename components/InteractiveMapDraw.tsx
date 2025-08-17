@@ -44,30 +44,21 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
     rectEl: HTMLDivElement | null
   }>({ active: false, start: null, rectEl: null })
   const [mapHasFocus, setMapHasFocus] = useState(false)
+  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'hybrid'>('streets')
   
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
-  // Street map style similar to editing-ui
-  const mapStyle = {
-    version: 8,
-    sources: {
-      'osm-tiles': {
-        type: 'raster',
-        tiles: [
-          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-          'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
-        ],
-        tileSize: 256,
-        attribution: '© OpenStreetMap contributors, © CARTO',
-        maxzoom: 20
-      }
-    },
-    layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#e6e6e6' } },
-      { id: 'osm-tiles', type: 'raster', source: 'osm-tiles', minzoom: 0, maxzoom: 22 }
-    ]
+  // Map styles based on selected style type
+  const getMapStyle = () => {
+    switch (mapStyle) {
+      case 'satellite':
+        return 'mapbox://styles/mapbox/satellite-v9'
+      case 'hybrid':
+        return 'mapbox://styles/mapbox/satellite-streets-v12'
+      case 'streets':
+      default:
+        return 'mapbox://styles/mapbox/streets-v12'
+    }
   }
 
   // Draw styles
@@ -770,7 +761,7 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
             bearing: 0
           }}
           style={{ width: '100%', height: '100%' }}
-          mapStyle={mapStyle as any}
+          mapStyle={getMapStyle()}
           maxZoom={22}
           onClick={handleMapClick}
           onLoad={() => {
@@ -778,6 +769,42 @@ export default function InteractiveMapDraw({ coordinates }: InteractiveMapDrawPr
             console.log('Map loaded and ready')
           }}
         />
+        
+        {/* Map Style Toggle */}
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-md p-2">
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setMapStyle('streets')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                mapStyle === 'streets'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Streets
+            </button>
+            <button
+              onClick={() => setMapStyle('satellite')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                mapStyle === 'satellite'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Satellite
+            </button>
+            <button
+              onClick={() => setMapStyle('hybrid')}
+              className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                mapStyle === 'hybrid'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Hybrid
+            </button>
+          </div>
+        </div>
       </div>
       
       <div onMouseDown={() => setMapHasFocus(false)}>
