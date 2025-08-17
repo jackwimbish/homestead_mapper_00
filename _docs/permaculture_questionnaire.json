@@ -1,0 +1,144 @@
+{
+  "permaculture_questionnaire": [
+    {
+      "question": "What is your background in gardening/farming/design?",
+      "prompt": "Describe your experience with gardening, farming, landscape design, or related fields. Include any formal training, hands-on experience, family background, or self-taught skills. Mention specific techniques you've learned or systems you've worked with."
+    },
+    {
+      "question": "How do you want to integrate permaculture into your life?",
+      "prompt": "Select your primary goal: personal use for your own property, becoming a professional designer/installer for others, or incorporating permaculture into an existing business. You may have multiple goals - explain how they relate to each other."
+    },
+    {
+      "question": "Client Names and Ages",
+      "prompt": "List the names and ages of all decision-makers and primary users of the property. Include children if they will be significantly involved in planning or using the space."
+    },
+    {
+      "question": "Client Occupations",
+      "prompt": "Describe the work/career of each adult. This helps understand available time, physical capabilities, and potential synergies with the permaculture design."
+    },
+    {
+      "question": "Amount of time available for maintaining property",
+      "prompt": "Estimate realistic weekly hours available for garden maintenance, seasonal projects, and ongoing care. Consider work schedules, family commitments, and seasonal variations."
+    },
+    {
+      "question": "Initial Budget for implementation",
+      "prompt": "Provide budget ranges for different phases. Consider immediate needs vs. long-term goals. Include factors that might affect budget allocation (like uncertain housing situation)."
+    },
+    {
+      "question": "Who has the ability to make veto decisions for the site?",
+      "prompt": "Identify all parties who must approve major changes - property owners, family members, HOA, local authorities, etc. Note any hierarchies or consultation processes."
+    },
+    {
+      "question": "What's the client's dream for the property?",
+      "prompt": "Describe the ideal vision for how the property will function and feel. Include practical goals (food production, recreation) and intangible ones (beauty, connection to nature, learning opportunities)."
+    },
+    {
+      "question": "General Lifestyle",
+      "prompt": "Describe activity level and travel patterns. This affects maintenance requirements and seasonal planning needs."
+    },
+    {
+      "question": "Special requirements",
+      "prompt": "List any legal restrictions (HOA rules, zoning), physical limitations, aesthetic requirements, or other constraints that must be considered in the design."
+    },
+    {
+      "question": "Hobbies",
+      "prompt": "List recreational activities and interests of household members. These may inspire design elements or suggest areas where the property could better support existing interests."
+    },
+    {
+      "question": "How long do residents plan to live at this site?",
+      "prompt": "Estimate timeline for occupancy. This affects whether to invest in long-term infrastructure vs. portable/temporary solutions. Include any uncertainties or contingency plans."
+    },
+    {
+      "question": "Water systems - Existing and Desired",
+      "prompt": "Current: Describe existing water sources, storage, and distribution systems. Desired: List water-related improvements like rainwater collection, greywater systems, irrigation upgrades, or filtration systems."
+    },
+    {
+      "question": "Lighting - Existing and Desired",
+      "prompt": "Current: Describe outdoor lighting for paths, buildings, work areas. Desired: Identify areas needing better lighting for safety, aesthetics, or functionality."
+    },
+    {
+      "question": "Structures - Existing and Desired",
+      "prompt": "Current: List all buildings and permanent structures. Desired: Identify needed structures like greenhouses, storage, workshops, animal housing, or shade structures."
+    },
+    {
+      "question": "Heating, cooling, electricity - Existing and Desired",
+      "prompt": "Current: Describe energy systems for buildings and outdoor spaces. Desired: List energy improvements like renewable energy, passive heating/cooling, or energy storage."
+    },
+    {
+      "question": "Utility areas - Existing and Desired",
+      "prompt": "Current: Describe areas for laundry, waste management, tool storage, etc. Desired: List improvements for efficiency, sustainability, or convenience in utility functions."
+    },
+    {
+      "question": "Children's areas - Existing and Desired",
+      "prompt": "Current: Describe play areas, sports facilities, learning spaces. Desired: List additions for recreation, education, or development appropriate for children's ages and interests."
+    },
+    {
+      "question": "Level of food self-reliance (present and future)",
+      "prompt": "Current: Estimate percentage of food currently produced on-site and describe diet/food preferences. Desired: State target self-sufficiency level and timeline for achieving it."
+    },
+    {
+      "question": "Does income need to be produced from the property?",
+      "prompt": "Current: Any existing income from the property. Desired: Whether future income generation is a goal, and if so, what type (market garden, value-added products, agritourism, etc.)."
+    },
+    {
+      "question": "Compost and recycling systems?",
+      "prompt": "Current: Describe existing waste management and composting. Desired: List improvements for waste reduction, better composting, or closed-loop systems."
+    },
+    {
+      "question": "Livestock - Existing and Desired",
+      "prompt": "Current: List any animals currently kept. Desired: Describe animals you'd like to add, considering local regulations, available space, and maintenance requirements."
+    },
+    {
+      "question": "Pets, Woodlot, Vehicles",
+      "prompt": "Describe companion animals, any forested areas or timber management needs, and vehicle storage/access requirements that affect the design."
+    },
+    {
+      "question": "Wildlife enhancement - Existing and Desired",
+      "prompt": "Current: Describe current wildlife observed on the property. Desired: List goals for attracting or supporting specific types of wildlife through habitat improvement."
+    },
+    {
+      "question": "What is the client's vision for the site?",
+      "prompt": "Provide a comprehensive summary of how you want the property to function as a complete system. Include practical functions, aesthetic goals, and how different elements will work together."
+    },
+    {
+      "question": "What are the challenges or limitations that the client has encountered on this site?",
+      "prompt": "Describe obstacles you've faced in previous projects or anticipate facing. Include regulatory, physical, financial, time, or skill-related challenges."
+    },
+    {
+      "question": "What are your goals as the designer for this project?",
+      "prompt": "If you're designing for yourself, describe your design philosophy and priorities. If designing for others, explain your approach and what you hope to achieve for the client."
+    },
+    {
+      "question": "What are the three biggest cultural/social/economic challenges in your region?",
+      "prompt": "Identify regional factors that affect permaculture implementation - population growth, economic conditions, social attitudes, labor availability, etc. Explain how each impacts local food/sustainability efforts."
+    },
+    {
+      "question": "What are the greatest strengths or opportunities in your region?",
+      "prompt": "Describe regional advantages for permaculture - climate, soil, water availability, supportive community, markets for local food, educational resources, etc."
+    },
+    {
+      "question": "What are the three biggest problems or weak links on your design site?",
+      "prompt": "Identify the most significant site-specific challenges - soil issues, water problems, access limitations, regulatory restrictions, social constraints, etc. Prioritize by impact on overall design."
+    },
+    {
+      "question": "What have been the obstacles thus far in resolving each of these problems?",
+      "prompt": "For each major problem identified above, describe what you've tried, what hasn't worked, and what barriers prevent solutions."
+    },
+    {
+      "question": "What's been the cost of these problems to date?",
+      "prompt": "Quantify the impact of ongoing problems in terms of money spent, time lost, reduced productivity, missed opportunities, or other measurable effects."
+    },
+    {
+      "question": "What are the greatest strengths or opportunities on your site?",
+      "prompt": "Identify your site's best assets - good soil, water access, existing productive systems, favorable microclimates, infrastructure, location advantages, etc."
+    },
+    {
+      "question": "What are the most likely natural disasters to happen in your region?",
+      "prompt": "List weather events, geological risks, or climate-related threats that could impact the property. Consider frequency and severity based on local history and climate projections."
+    },
+    {
+      "question": "What are some strategies for resilience against those natural disasters?",
+      "prompt": "Describe design approaches, infrastructure choices, or management practices that would help the property withstand or quickly recover from likely disasters."
+    }
+  ]
+}

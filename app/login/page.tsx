@@ -11,7 +11,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.push('/map')
+      router.push('/projects')
     }
   }, [user, loading, router])
 

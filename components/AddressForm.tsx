@@ -4,10 +4,11 @@ import { useState } from 'react'
 
 interface AddressFormProps {
   onSubmit: (address: string) => void
+  initialAddress?: string
 }
 
-export default function AddressForm({ onSubmit }: AddressFormProps) {
-  const [address, setAddress] = useState('')
+export default function AddressForm({ onSubmit, initialAddress = '' }: AddressFormProps) {
+  const [address, setAddress] = useState(initialAddress || '')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,7 +34,7 @@ export default function AddressForm({ onSubmit }: AddressFormProps) {
         <button
           type="submit"
           className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
-          disabled={!address.trim()}
+          disabled={!address || !address.trim()}
         >
           Find Property
         </button>

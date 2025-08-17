@@ -19,7 +19,8 @@ interface UseHomesteadDesignReturn {
 
 export function useHomesteadDesign(
   user: User | null, 
-  coordinates: { lng: number; lat: number } | null
+  coordinates: { lng: number; lat: number } | null,
+  projectId?: string
 ): UseHomesteadDesignReturn {
   const [objects, setObjects] = useState<MapObject[]>([])
   const [status, setStatus] = useState<Status>('idle')
@@ -30,8 +31,8 @@ export function useHomesteadDesign(
   const hasUnsavedChanges = JSON.stringify(objects) !== JSON.stringify(originalObjects)
 
   const saveDesign = useCallback(async () => {
-    if (!user || !coordinates) {
-      setError('Must be logged in with a location to save')
+    if (!user) {
+      setError('Must be logged in to save')
       return
     }
 
@@ -39,8 +40,14 @@ export function useHomesteadDesign(
     setError(null)
     
     try {
-      const designData = {
-        id: user.id, // Supabase user ID is 'id', not 'uid'
+      const designData = projectId ? {
+        id: `${user.id}_${projectId}`,
+        project_id: projectId,
+        objects,
+        coordinates,
+        updated_at: new Date().toISOString(),
+      } : {
+        id: user.id,
         objects,
         coordinates,
         updated_at: new Date().toISOString(),
@@ -65,7 +72,7 @@ export function useHomesteadDesign(
       setError(err instanceof Error ? err.message : 'Failed to save design')
       setStatus('error')
     }
-  }, [user, coordinates, objects])
+  }, [user, coordinates, objects, projectId])
 
   const loadDesign = useCallback(async () => {
     if (!user) {
@@ -77,11 +84,11 @@ export function useHomesteadDesign(
     setError(null)
     
     try {
-      const { data, error: selectError } = await supabase
-        .from('designs')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      const query = projectId 
+        ? supabase.from('designs').select('*').eq('project_id', projectId).single()
+        : supabase.from('designs').select('*').eq('id', user.id).single()
+      
+      const { data, error: selectError } = await query
 
       if (selectError && selectError.code !== 'PGRST116') { // PGRST116 is the code for 'No rows found'
         console.error('Error loading design:', selectError)
@@ -109,14 +116,14 @@ export function useHomesteadDesign(
       setError(err instanceof Error ? err.message : 'Failed to load design')
       setStatus('error')
     }
-  }, [user])
+  }, [user, projectId])
 
-  // Auto-load design when user logs in
+  // Auto-load design when user logs in or project changes
   useEffect(() => {
-    if (user && objects.length === 0) {
+    if (user && (projectId || objects.length === 0)) {
       loadDesign()
     }
-  }, [user]) // Intentionally not including loadDesign to avoid infinite loops
+  }, [user, projectId]) // Intentionally not including loadDesign to avoid infinite loops
 
   return {
     objects,
