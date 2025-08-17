@@ -142,17 +142,22 @@ export default function ProjectMapPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen relative">
-      <div className="absolute top-4 left-4 z-10 bg-white shadow-md rounded-lg p-4">
-        <h2 className="font-semibold text-lg mb-1">{currentProject.name}</h2>
-        <Link
-          href={`/projects/${resolvedParams.id}`}
-          className="text-sm text-green-600 hover:text-green-700"
-        >
-          ← Back to Project
-        </Link>
+    <div className="min-h-screen flex flex-col">
+      <div className="bg-white shadow-md border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/projects/${resolvedParams.id}`}
+            className="text-gray-600 hover:text-gray-900 font-medium flex items-center gap-2"
+          >
+            ← Back to Project
+          </Link>
+          <div className="border-l border-gray-300 h-6"></div>
+          <h2 className="font-semibold text-lg text-gray-900">{currentProject.name} - Map Planner</h2>
+        </div>
       </div>
-      <InteractiveMapDraw coordinates={coordinates} projectId={resolvedParams.id} />
+      <div className="flex-1 relative">
+        <InteractiveMapDraw coordinates={coordinates} projectId={resolvedParams.id} />
+      </div>
     </div>
   )
 }
